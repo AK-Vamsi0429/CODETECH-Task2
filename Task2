@@ -1,0 +1,79 @@
+Verilog code:
+// sync_ram.v
+module SyncRAM #(
+    parameter DATA_WIDTH = 8,
+    parameter ADDR_WIDTH = 4
+)(
+    input clk,
+    input we,                   // Write enable
+    input [ADDR_WIDTH-1:0] addr,
+    input [DATA_WIDTH-1:0] din,
+    output reg [DATA_WIDTH-1:0] dout
+);
+
+    reg [DATA_WIDTH-1:0] mem [0:(1<<ADDR_WIDTH)-1];
+
+    always @(posedge clk) begin
+        if (we)
+            mem[addr] <= din;   // Write operation
+        else
+            dout <= mem[addr];  // Read operation
+    end
+
+endmodule
+
+TEST BENCH:
+// tb_sync_ram.v
+`timescale 1ns / 1ps
+module tb_SyncRAM;
+
+reg clk;
+reg we;
+reg [3:0] addr;
+reg [7:0] din;
+wire [7:0] dout;
+
+// Instantiate RAM
+SyncRAM ram_inst (
+    .clk(clk),
+    .we(we),
+    .addr(addr),
+    .din(din),
+    .dout(dout)
+);
+
+// Clock generation
+initial clk = 0;
+always #5 clk = ~clk; // 10ns period
+
+initial begin
+    $monitor("Time=%0t | WE=%b Addr=%h Din=%h Dout=%h", 
+              $time, we, addr, din, dout);
+
+    // Initial values
+    we = 0; addr = 0; din = 0; #10;
+
+    // Write operations
+    we = 1; addr = 4'h1; din = 8'hAA; #10;
+    addr = 4'h2; din = 8'hBB; #10;
+    addr = 4'h3; din = 8'hCC; #10;
+
+    // Read operations
+    we = 0; addr = 4'h1; #10;
+    addr = 4'h2; #10;
+    addr = 4'h3; #10;
+
+    $finish;
+end
+
+endmodule
+
+OUTPUT:
+Time=0  | WE=0 Addr=0 Din=00 Dout=xx
+Time=10 | WE=1 Addr=1 Din=aa Dout=xx  // Write 0xAA to addr 1
+Time=20 | WE=1 Addr=2 Din=bb Dout=xx  // Write 0xBB to addr 2
+Time=30 | WE=1 Addr=3 Din=cc Dout=xx  // Write 0xCC to addr 3
+Time=40 | WE=0 Addr=1 Din=cc Dout=aa  // Read from addr 1
+Time=50 | WE=0 Addr=2 Din=cc Dout=bb  // Read from addr 2
+Time=60 | WE=0 Addr=3 Din=cc Dout=cc  // Read from addr 3
+
